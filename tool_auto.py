@@ -33,16 +33,38 @@ def check_and_update():
         if "YOUR_USERNAME" in URL_REMOTE:
             print("[Update] Chua cau hinh URL_REMOTE -> bo qua.\n")
         return
+    
+    is_exe = getattr(sys, 'frozen', False)
+    
+    if SKIP_UPDATE or "YOUR_USERNAME" in URL_REMOTE:
+        if "YOUR_USERNAME" in URL_REMOTE:
+            print("[Update] Chua cau hinh URL_REMOTE -> bo qua.\n")
+        return
+        
     try:
-        tmp = tempfile.mktemp(suffix=".py")
+        # 2. Xác định file hiện tại (Nếu là exe thì lấy đường dẫn exe, nếu py thì lấy __file__)
+        current_file = sys.executable if is_exe else os.path.abspath(__file__)
+        
+        tmp = tempfile.mktemp(suffix=".exe" if is_exe else ".py")
         urllib.request.urlretrieve(URL_REMOTE, tmp)
-        if _md5(__file__) != _md5(tmp):
-            shutil.copy(tmp, __file__); os.remove(tmp)
+        
+        if _md5(current_file) != _md5(tmp):
+            # Lưu ý: File .exe đang chạy không thể tự ghi đè chính nó trực tiếp trên Windows
+            if is_exe:
+                print("[Update] Co ban moi, vui long tai file .exe moi thay the.")
+                os.remove(tmp)
+                return
+            
+            shutil.copy(tmp, current_file)
+            os.remove(tmp)
             notification.notify(title="Azota cap nhat!", message="Dang restart...", timeout=3)
             time.sleep(2)
-            env = os.environ.copy(); env["AZOTA_SKIP_UPDATE"] = "1"
-            os.execve(sys.executable, [sys.executable, __file__] + sys.argv[1:], env)
-        os.remove(tmp); print("[Update] Phien ban moi nhat.\n")
+            env = os.environ.copy()
+            env["AZOTA_SKIP_UPDATE"] = "1"
+            os.execve(sys.executable, [sys.executable, current_file] + sys.argv[1:], env)
+            
+        os.remove(tmp)
+        print("[Update] Phien ban moi nhat.\n")
     except Exception as e:
         print(f"[Update] Loi: {e}\n")
 
